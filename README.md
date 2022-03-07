@@ -25,7 +25,7 @@ through the data leaving out one observation at a time. Compared my predictions 
 for vintage using a confusion matrix and calculated classification error and accuracy.
 
 This project was part of the Predictive Analytics course from the University of Newcastle (Uon) 
-Master's of Data Science Degree.
+Master of Data Science Degree.
 
 I have used R Studio to prepare a final R Markdown document.
 
