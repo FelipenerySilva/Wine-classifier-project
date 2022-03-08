@@ -1,0 +1,272 @@
+---
+title: "STAT6020 Predictive Analytics - Assignment 2"
+author: "Felipe Nery Da Silva"
+date: "05/09/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Wine
+
+### We are interested in developing a tool that can classify wines into one of the three types based on the other variables provided.
+
+```{r}
+#read table wine
+wine <-read.csv('wine.csv')
+summary(wine)
+```
+
+## Linear and Quadratic Discriminant Analysis
+
+### Question 1:
+Perform cross-validated LDA (LOOCV) with variable vintage as the response,
+and all the numeric variables as predictors. Compute and display the confusion matrix as well
+as the corresponding classification accuracy and error. Comment on the result.
+
+```{r}
+library (MASS)
+
+numeric_predictors <- c("ash","ash_alkalinity","magnesium","nonflav_phenols","proanth")
+Predictors <- wine[ , numeric_predictors] 
+class <- wine[ , "vintage"]
+Predictors_and_Class <- wine[ , c(numeric_predictors,"vintage")] 
+
+lda.fit <- lda(vintage ~ ash + ash_alkalinity + magnesium + nonflav_phenols + proanth, 
+               data = Predictors_and_Class, CV=TRUE)
+
+predicted_class <- lda.fit$class 
+(cm <- table(predicted_class, class))
+
+```
+ 
+```{r}
+(accuracy <- sum(diag(cm))/sum(cm))
+```
+```{r}
+(error <- 1 - accuracy)
+```
+
+The confusion matrix shows 39 misclassified observations out of 177. The model classified approximately 78% of the data with an error of 22.0339%. In addition, the performance of classifying vintage B was better than vintage A and C.    
+
+### Question 2
+Repeat the previous question but using QDA in lieu of LDA. Compare the LOOCV
+results with those obtained by LDA.
+
+```{r}
+qda.fit <- qda(vintage ~ ash + ash_alkalinity + magnesium + nonflav_phenols + proanth, 
+               data = Predictors_and_Class, CV=TRUE)
+
+predicted_classQ <- qda.fit$class 
+(cmQ <- table(predicted_classQ, class))
+
+```
+```{r}
+(accuracyQ <- sum(diag(cmQ))/sum(cmQ))
+```
+```{r}
+(error <- 1 - accuracyQ)
+```
+
+ The confusion matrix results show Vintage B classifying had a slightly poorer performance, when compared to LDA results, however it was still better than vintage A and C. Vintage A improved its classifying performance. QDA does not improve on LDA in terms of classification accuracy and error in this case.  
+
+## K Nearest Neighbours
+
+### Question 3
+Perform cross-validated KNN (LOOCV) with variable vintage as the response,
+and all the numeric variables as predictors. Use a loop to compute the (cross-validated)
+classification accuracy and error for k between 1 and 15. Plot the classification error against k.
+Using your plot, select an appropriate value of k. Display the confusion matrix for this value
+of k and comment on the performance of KNN compared to QDA and LDA.
+
+```{r}
+require(class)
+set.seed(0)
+predictors <- wine[, c("ash","ash_alkalinity","magnesium","nonflav_phenols","proanth")]
+class_labels <- wine[, "vintage"]
+Pred_class <- knn.cv(train=predictors, cl=class_labels)
+(cmk <- table(Pred_class, class_labels))
+
+```
+```{r}
+(accuracy = sum(diag(cmk))/sum(cmk))
+```
+```{r}
+predictors <- wine[, c("ash","ash_alkalinity","magnesium","nonflav_phenols","proanth")]
+class_labels <- wine[, "vintage"]
+for(k in 1:15){
+Pred_class <- knn.cv(train=predictors, cl=class_labels, k=k)
+cont_tab <- table(Pred_class, class_labels)
+accuracy[k] <- sum(diag(cont_tab))/sum(cont_tab)
+}
+k <- 1:15
+(error <- 1-accuracy)
+```
+```{r}
+plot(error~k)
+lines(predict(loess(error~k)), col="red")
+```
+
+Display the confusion matrix for this value of k and comment on the performance of KNN compared to QDA and LDA.
+```{r}
+Pred_class_k8 <- knn.cv(train=predictors, cl=class_labels, k=8)
+(cmk8 <- table(Pred_class, class_labels))
+```
+```{r}
+(accuracy_k8 = sum(diag(cmk))/sum(cmk))
+```
+
+The KNN confusion matrix shows 63 misclassified observations. In this case the KNN model underperformed when compared to the previous QDA and LDA.
+
+### Question 4
+Repeat the previous question, now with the numerical predictors standardized so as
+to have mean 0 and standard deviation 1. Comment on the results, comparing with the results
+from the previous item. For each of the explanatory variables, do you think standardizing has
+increased or decreased its influence on the classification? Why?
+
+```{r}
+predictors <- wine[, c("ash","ash_alkalinity","magnesium","nonflav_phenols","proanth")]
+predictors <- as.matrix(scale(predictors))
+class_labels <- wine[, "vintage"]
+for(k in 1:15){
+Pred_class <- knn.cv(train=predictors, cl=class_labels, k=k)
+cont_tab <- table(Pred_class, class_labels)
+accuracy[k] <- sum(diag(cont_tab))/sum(cont_tab)
+}
+k <- 1:15
+(error <- 1-accuracy)
+```
+```{r}
+plot(error~k)
+lines(predict(loess(error~k)), col="red")
+```
+```{r}
+Pred_class_k6 <- knn.cv(train=predictors, cl=class_labels, k=6)
+(cmk6 <- table(Pred_class, class_labels))
+```
+```{r}
+accuracy_k6 <- sum(diag(cmk6))/sum(cmk6)
+accuracy_k6
+```
+
+```{r}
+error_k6 <- 1 - accuracy_k6
+print(error_k6)
+```
+
+The KNN K=6 model with standardised predictors had 37 misclassified observation and improved classification when compared with previous LDA, QDA and KNN(not standardised). 
+Standardising each of the explanatory variables has increased its influence on the classification. Because in KNN we use measurement of distance on the classification and it can be influenced by units measures. In other words, standardisation makes all variables to contribute equally to the similarity measures and it will result in an improvement of the classification.
+
+## Naive Bayes
+
+### Question 5
+Perform cross-validated Naive Bayes (LOOCV) with variable vintage as the response, 
+and all the numeric variables as predictors. You may need to implement the LOOCV
+using your own code to loop through the data leaving out one observation at a time. Com-
+pare your predictions to actual classes for vintage using a confusion matrix and calculate
+classification error and accuracy. Compare the performance with the other classifiers used.
+
+```{r}
+library(naivebayes)
+numeric_predictors <- c("ash","ash_alkalinity","magnesium","nonflav_phenols","proanth")
+Predictors <- wine[ , numeric_predictors] 
+class <- wine[ , "vintage"]
+Predictors_and_Class <- wine[ , c(numeric_predictors,"vintage")] 
+
+
+no_obs <- dim(wine)[1] 
+Pred_class <- rep("", no_obs)
+for (test_index in 1:no_obs){ 
+
+NB.fit <- naive_bayes(vintage ~ ash + ash_alkalinity + magnesium + nonflav_phenols + proanth, 
+                      data = Predictors_and_Class[-test_index, ])
+
+Pred_class_test <- predict(NB.fit, newdata = Predictors[test_index, ], type = "class")
+Pred_class[test_index] <- as.character(Pred_class_test)
+}
+cm_nb <- table(Pred_class, class)
+cm_nb
+```
+```{r}
+accuracy_nb <- sum(diag(cm_nb))/sum(cm_nb)
+accuracy_nb
+```
+```{r}
+error <- 1 - accuracy_nb
+print(error)
+```
+The NB confusion matrix shows a number of 44 misclassified observations. The NB model accuracy is approximately 75% and a classification error of 24.85876%. The cross-validated Naive Bayes model has not performed better when compared with LDA, QDA and KNN with standardised predictors.  
+
+### Question 6
+Repeat the previous question with the inclusion of the categorical explanatory
+variable colour. Set laplace=1 for a minimal amount of Laplace smoothing.
+
+```{r}
+class <- wine[ , "vintage"]
+no_obs <- dim(wine)[1] 
+Pred_class <- rep("", no_obs)
+
+for (test_index in 1:no_obs){ 
+
+NB.fit <- naive_bayes(vintage ~., data = wine[-test_index, ],laplace = 1)
+
+Pred_class_test <- predict(NB.fit, newdata = wine[test_index, -7], type = "class")
+Pred_class[test_index] <- as.character(Pred_class_test)
+}
+cm_nb1 <- table(Pred_class, class)
+cm_nb1
+```
+```{r}
+accuracy_nb1 <- sum(diag(cm_nb1))/sum(cm_nb1)
+accuracy_nb1
+```
+```{r}
+error_nb1 <- 1 - accuracy_nb1
+print(error_nb1)
+```
+The Naive bayes model (all variables) confusion matrix shows 22 misclassified observations. It performed a classification accuracy of 87.57062% with an error of 12.42938%. It has better performed classification when compared with all the previous methods.
+
+### Question 7
+Now train a Naive Bayes classifier using all of the data (all observations and
+all explanatory variables). Again set laplace=1 for a minimal amount of Laplace smoothing.
+Print the resulting Naive Bayes probability table. (The tables() function may be useful.)
+Assume we wanted to classify based on colour alone. Using the relevant information from the
+probability table, calculate by hand the probabilities of classes A, B and C given that colour
+is col1. What is your predicted vintage in this case?
+
+```{r}
+
+# train NB with full dataset
+wine = as.data.frame(wine)
+NBwine = naive_bayes(vintage ~ ash + ash_alkalinity + magnesium + nonflav_phenols + proanth + 
+                       colour, data = wine, laplace = 1)
+NBwine
+```
+
+
+```{r}
+# ( Use the tables() function if used to show the conditional probabylities of colours given we are in vintage A, or B or C(colour table, if we wanted to classify based on colour alone)
+
+tables(NBwine, which = 6)
+```
+```{r}
+#Prior probabilities of Vintage classes A, B, C
+ P(A) = 0.2711864
+ P(B) = 0.3276836
+ P(C)= 0.4011299 
+
+P(Col1|A)=0.2115 
+P(Col1|B)=0.0645
+P(Col1|C)=0.4266
+
+# P(A|(Col1)=P(Col1|A)*P(A)/P(Col1)
+
+#Check your answer with:
+#predict(NB.wine, newdata=data.frame(colour="col1"), type="prob")
+```
+
+
